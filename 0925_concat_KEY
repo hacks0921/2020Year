@@ -1,0 +1,17 @@
+import pandas as pd
+from pandas import DataFrame
+
+rawdata_1 = pd.read_excel('result_1.xlsx', index_col="A")
+rawdata_2 = pd.read_excel('result_2.xlsx', index_col="A")
+# rawdata_1 = pd.read_excel('result_1.xlsx')
+# rawdata_2 = pd.read_excel('result_2.xlsx')
+print(rawdata_1)
+print(rawdata_2)
+
+frames = [rawdata_1,rawdata_2]
+
+result_1= pd.concat(frames)
+print(result_1)
+
+result_2= pd.concat(frames, axis = 1,join_axes=[rawdata_1.index])
+print(result_2)

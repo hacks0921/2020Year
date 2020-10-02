@@ -1,0 +1,45 @@
+import pandas as pd
+import numpy as np
+
+rawdata = pd.read_csv('2019-10-19.txt',error_bad_lines=False)
+
+#rawdata = pd.read_csv('2019-10-19.txt', encoding='utf-16', sep='delimiter', header=None)
+# print(rawdata)
+
+rawdata_filter = []
+rawdata_month = []
+rawdata_day = []
+rawdata_h = []
+rawdata_m = []
+rawdata_s = []
+rawdata_msg = []
+rawdata_total_s = []
+rawdata_total_s_diff = []
+c = 0
+
+for i in rawdata.get_values():
+    # print(type(i))
+    i = str(i.tolist())
+    # print(type(i))
+    if '2019-10-19' in i:
+        # print(i)
+        rawdata_filter.append(i[:])
+        rawdata_month.append(i[8:10])
+        rawdata_day.append(i[11:13])
+        rawdata_h.append(i[14:16])
+        rawdata_m.append(i[17:19])
+        rawdata_s.append(i[20:26])
+        rawdata_msg.append(i[33:38])
+        rawdata_total_s.append(float(rawdata_h[c]) * 3600 + float(rawdata_m[c]) * 60 + float(rawdata_s[c]))
+        rawdata_total_s_diff.append(float(rawdata_total_s[c])-float(rawdata_total_s[c-1]))
+        c = c + 1
+
+ar = np.array([rawdata_filter,rawdata_month,rawdata_day,rawdata_h,rawdata_m,rawdata_s,rawdata_msg,rawdata_total_s,rawdata_total_s_diff])
+ar = np.transpose(ar)
+df = pd.DataFrame(ar,columns=['rawdata_filter','rawdata_month','rawdata_day','rawdata_h',
+                              'rawdata_m','rawdata_s','rawdata_msg','rawdata_total_s','rawdata_total_s_diff'])
+
+df.to_excel('result.xlsx', sheet_name = 'new')
+
+
+print(df.groupby('rawdata_msg').mean())

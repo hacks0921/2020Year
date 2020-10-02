@@ -1,0 +1,123 @@
+import sys
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from PyQt5.QtCore import QObject
+from PyQt5.QtCore import QThread
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import *
+
+
+class Window(QWidget):
+    path_signal = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        layout = QVBoxLayout(self)
+        self.p = QPixmap("꽃.jpg") # QPixmap 기본 이미지 설정
+        self.lbl1 = QLabel(self)  # lbl 설정
+        self.lbl1.setPixmap(self.p) # blb에 pixmap 넣기
+        layout.addWidget(self.lbl1)  # vbox 위젯에 lbb 넣기
+        self.lbl2 = QLabel("↓↓↓감시할 폴더를 선택하세요↓↓↓",self)  # 검색 폴더 설정
+        layout.addWidget(self.lbl2)  # vbox 위젯에 lbb 넣기
+        self.le = QLineEdit("C:\\감시폴더",self) #le 설정
+        layout.addWidget(self.le) #vbox 위젯에 lb 넣기
+        self.button_start = QPushButton('Start', self)
+        layout.addWidget(self.button_start)
+        self.button_cancel = QPushButton('Cancel', self)
+        layout.addWidget(self.button_cancel)
+        self.lbl3 = QLabel("상태 표시", self)  # lbl 설정
+        # self.lbl3.setFont(QFont("궁서", 11))
+        layout.addWidget(self.lbl3)  # vbox 위젯에 lbb 넣기
+
+        self.label_status = QLabel('Vth Image 파일 경로', self)
+        layout.addWidget(self.label_status)
+
+    def updateStatus(self, event):
+        print("3차...kkk성공")
+        # print('{0}'.format(event))
+        print(event)
+        self.label_status.setText(event)
+
+    def Img_Redrawing(self, event):
+        print("이미지생성")
+
+    def start(self):
+        self.lbl3.setText("실시감 감시중...")
+        self.lbl3.setStyleSheet('color:white ; background:rgb(0,0,250)')
+        print("실시간 감시중...")
+
+    def stop(self):
+        self.lbl3.setText("감시 중단")
+        self.lbl3.setStyleSheet('color:white ; background:rgb(250,0,0)')
+        print("감시 중단")
+
+class Worker(QObject):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.observer = Observer()
+        self.handler2 = Handler()
+
+    def startWork(self):
+        self.ww = Window()
+        watchDir = self.ww.le.text()
+        watchDir=watchDir.replace('\\','\\\\')
+
+        event_handler = self.handler2
+        self.observer.schedule(event_handler, watchDir, recursive=True)
+        self.observer.start()
+        print("감시시작...")
+        try:
+            while True:
+                time.sleep(1)
+        except:
+            self.observer.stop()
+            print("Error")
+            self.observer.join()
+
+class Handler(FileSystemEventHandler,QObject):
+    sig_numbers = pyqtSignal(str)
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+
+    def on_created(self, event):  # 파일, 디렉터리가 생성되면 실행
+        e = event.key[1]
+        print(e)
+        # self.c = Communicate()
+        self.sig_numbers.emit(e)
+        # self.sig_numbers.emit(self.aaa(event))
+
+
+class Example(QObject):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.gui = Window()
+        self.worker = Worker()
+        self.worker_thread = QThread()
+        self.worker.moveToThread(self.worker_thread)
+        self.worker_thread.start()
+        self._connectSignals()
+        self.gui.show()
+
+    def _connectSignals(self):
+        self.gui.button_start.clicked.connect(self.worker.startWork)
+        self.gui.button_start.clicked.connect(self.gui.start)
+        self.worker.handler2.sig_numbers.connect(self.gui.updateStatus)
+        self.gui.button_cancel.clicked.connect(self.forceWorkerReset)
+        self.gui.button_cancel.clicked.connect(self.gui.stop)
+
+    def forceWorkerReset(self):
+        if self.worker_thread.isRunning():
+            self.worker_thread.terminate()
+            self.worker_thread.wait()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    example = Example(app)
+    sys.exit(app.exec_())

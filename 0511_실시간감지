@@ -1,0 +1,229 @@
+#0511
+import sys
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from PyQt5.QtCore import QObject
+from PyQt5.QtCore import QThread
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import *
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import timeit
+import numpy as np
+import cv2 as cv
+
+
+class Window(QWidget):
+    path_signal = pyqtSignal(str)
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+
+        self.setGeometry(100, 100, 100, 100)
+        self.setWindowTitle('Vth Image 실시간 확인 PGM')
+        layout = QVBoxLayout(self)
+        self.lbl0 = QLabel("PANEL ID",self)  # lbl 설정
+        self.lbl0.setFixedSize(500, 20)
+        layout.addWidget(self.lbl0)  # vbox 위젯에 lbb 넣기
+
+        self.lbl1 = QLabel(self) # lbl 설정
+        self.lbl1.setFixedSize(1536,215) # (153.61, 21.5) => 10배
+        layout.addWidget(self.lbl1)  # vbox 위젯에 lbb 넣기
+
+        self.lbl2 = QLabel("↓↓↓감시할 폴더를 선택하세요↓↓↓",self)  # 검색 폴더 설정
+        layout.addWidget(self.lbl2)  # vbox 위젯에 lbb 넣기
+
+        self.le1 = QLineEdit("D:\\1)감시폴더",self) #le 설정
+        layout.addWidget(self.le1) #vbox 위젯에 lb 넣기
+
+        self.lbl3 = QLabel("↓↓↓Vth img 저장할 폴더를 선택하세요↓↓↓",self)  # 검색 폴더 설정
+        layout.addWidget(self.lbl3)
+
+        self.le2 = QLineEdit("D:\\1)Vth_image",self)
+        layout.addWidget(self.le2)
+
+        self.button_start = QPushButton('Start', self)
+        layout.addWidget(self.button_start)
+        self.button_cancel = QPushButton('Cancel', self)
+        layout.addWidget(self.button_cancel)
+        self.lbl3 = QLabel("상태 표시", self)
+        # self.lbl3.setFont(QFont("굴림", 24))
+        layout.addWidget(self.lbl3)
+
+        self.label_status = QLabel('Vth Image 파일 경로', self)
+        layout.addWidget(self.label_status)
+
+        self.label_tt = QLabel('Vth Image 생성 Tact Time', self)
+        layout.addWidget(self.label_tt)
+
+    def updateStatus(self, e):
+        self.label_status.setStyleSheet('color:white ; background:rgb(0,0,0)')
+        self.label_status.setText(e + "--->>>> CSV File를 읽고 있습니다.")
+
+    def updateError(self):
+        print("축소")
+        self.label_status.setText("Error 발생")
+        self.label_status.setStyleSheet('color:white ; background:rgb(200,0,0)')
+        # self.lbl1.setText("Error 발생")
+        self.lbl1.clear()
+        self.lbl0.setText("Error 발생")
+        self.label_tt.setText("Error 발생")
+
+    def updateImage(self,e,ee):
+        print(e)
+        print(ee)
+        self.img_update = QPixmap(e) # QPixmap 기본 이미지 설정
+        self.lbl1.setPixmap(self.img_update) # blb에 pixmap 넣기
+        print("[6단계]  Vth Image Update")
+        self.label_status.setText(e + "--->>>> Vth Image를 생성했습니다.")
+        self.label_tt.setText(ee)  # TT 출력
+        try:
+            panel_id = os.path.basename(e)
+            panel_id = panel_id[15:29]
+            self.lbl0.setText(panel_id)
+        except:
+            self.lbl0.setText("PANEL ID 생성 오류")
+
+    def start(self):
+        self.lbl3.setText("실시간 감시중...")
+        self.lbl3.setStyleSheet('color:white ; background:rgb(0,0,250)')
+        print("1) 실시간 감시중...")
+        new_path = self.le1.text()
+        print(new_path)
+
+    def stop(self):
+        self.lbl3.setText("감시 중단")
+        self.lbl3.setStyleSheet('color:white ; background:rgb(250,0,0)')
+        print("감시 중단")
+
+class Worker(QObject):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.observer = Observer()
+        self.handler2 = Handler()
+        self.ww = Window()
+
+    def startWork(self):
+        print("2) 실시간 감시중...")
+        watchDir = self.ww.le1.text()
+        print('---------')
+        print(watchDir)
+        print('---------')
+        watchDir = watchDir.replace('\\','\\\\')
+        event_handler = self.handler2
+        self.observer.schedule(event_handler, watchDir, recursive=True)
+        self.observer.start()
+        print("[1단계]  감시시작...")
+        try:
+            while True:
+                time.sleep(1)
+        except:
+            self.observer.stop()
+            print("Error")
+            self.observer.join()
+
+class Handler(FileSystemEventHandler,QObject):
+    sig_numbers = pyqtSignal(str)
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.vth = Vth_Image()
+
+    def on_created(self, event):  # 파일, 디렉터리가 생성되면 실행
+        print("[2단계]  CSV FILE 생성감지")
+        e = event.key[1]
+        self.sig_numbers.emit(e)
+        csv_path = e # CSV 파일 경로
+        self.vth.ImageDrawing(csv_path)  # CSV File로 이미지 만들기
+
+class Vth_Image(QObject):
+    sig_vth_img_path= pyqtSignal(str,str)
+    sig_err = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.www = Window()
+
+    def ImageDrawing(self,csv_path):
+        try:
+            start = timeit.default_timer()
+            vth_img_save_dir = self.www.le2.text()
+            if not os.path.exists(vth_img_save_dir):  # 저장 경로가 없으면 신규 생성
+                os.mkdir(vth_img_save_dir)
+            print("[3단계]  CSV FILE Data 읽기")
+            csv_name = os.path.basename(csv_path)
+            csv_name = csv_name.split('.')[0]  # 파일이름 추출
+            raw = pd.read_csv(csv_path,header=None)
+            raw = raw.fillna(0)
+            print(raw)
+            # plt.figure()ㄹ
+            plt.figure(figsize=(15.361, 2.15))
+            # plt.figure(figsize=(153.61, 21.5))
+            plt.axis('off') # 축 제거
+            plt.xticks([]), plt.yticks([]) # X,Y 제거
+            plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0) # 이미지 여백 제거
+            ax = sns.heatmap(raw, vmax=1000, cbar=False)
+            plt.savefig(vth_img_save_dir + '\\Vth_img_'+ csv_name +'.jpg')
+            print("[4단계]  CSV FILE --> Vth Image 변환")
+            a = vth_img_save_dir + '\\Vth_img_' + csv_name + '.jpg'
+            print("[5단계]  CSV FILE --> Vth Image 저장")
+            stop = timeit.default_timer()
+            print('{0}초 소요되었습니다'.format(int(stop-start)))
+            print(format((stop-start), '.2f') + '초 소요')
+            tt = format((stop - start), '.2f') + '초 소요'
+            self.sig_vth_img_path.emit(a,tt)
+
+        except:
+            print("image 생성 Error !!!!!!!!!")
+            self.sig_err.emit()
+            pass
+
+class Example(QObject):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.gui = Window()
+        self.vth = Vth_Image()
+        self.vth_thread = QThread()
+        self.vth.moveToThread(self.vth_thread)
+        self.vth_thread.start()
+        self.worker = Worker()
+        self.worker_thread = QThread()
+        self.worker.moveToThread(self.worker_thread)
+        self.worker_thread.start()
+        self._connectSignals()
+        self.gui.show()
+
+    def _connectSignals(self):
+        self.gui.button_start.clicked.connect(self.gui.start)
+        self.gui.button_start.clicked.connect(self.worker.startWork)
+
+        self.worker.handler2.sig_numbers.connect(self.gui.updateStatus)
+        self.worker.handler2.vth.sig_vth_img_path.connect(self.gui.updateImage)
+
+        self.worker.handler2.vth.sig_err.connect(self.gui.updateError)
+
+        self.gui.button_cancel.clicked.connect(self.gui.stop)
+        self.gui.button_cancel.clicked.connect(self.forceWorkerReset)
+    def forceWorkerReset(self):
+        # self.worker_thread.terminate()
+        # self.vth_thread.terminate()
+        if self.worker_thread.isRunning():
+            self.worker_thread.terminate()
+            self.worker_thread.wait()
+
+        if self.vth_thread.isRunning():
+            self.vth_thread.terminate()
+            self.vth_thread.wait()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    example = Example(app)
+    sys.exit(app.exec_())
+

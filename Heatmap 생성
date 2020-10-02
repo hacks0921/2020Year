@@ -1,0 +1,93 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import timeit
+import cv2
+
+# rawdata = pd.read_csv('./0103_SENSING DATA.csv', encoding='utf-16', sep='delimiter', header=None)
+# 1) 파일 경로 추출
+# 2) 1번 파일 경로 읽어서 이미지 생성
+# 3) 1번 이미지 저장
+# 4) 2번 파일 경로 읽어서 이미지 생성
+# 5) 2번 이미지 저장
+
+SEN_PATH = "./SENSING DATA"
+TXT_PATH = "./TXT DATA"
+
+CSV_File = os.listdir(SEN_PATH)
+TXT_File = os.listdir(TXT_PATH)
+
+CSV_File_PATH = []
+TXT_File_PATH = []
+
+start = timeit.default_timer()
+
+now_dir = os.getcwd()
+print(now_dir)
+
+a = list(range(0,15630))
+i = 0
+
+for x in CSV_File:
+    try:
+        CSV_PID = x[7:21]
+        for y in TXT_File:
+            TXT_PID = y[5:19]
+            if CSV_PID in y:
+                print(x)
+                CSV_File_PATH = os.path.join(SEN_PATH, x)
+                print(CSV_File_PATH)
+                rawdata = pd.read_csv(CSV_File_PATH)
+                df = pd.DataFrame(rawdata)
+                df.columns =  list(range(1,15361))
+                # print(rawdata)
+                plt.figure(figsize=(153.61 , 21.5))
+
+                plt.axis('off')
+                plt.xticks([]), plt.yticks([])
+                plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0, wspace=0)
+                ax = sns.heatmap(rawdata,vmax = 500,cbar=False)
+
+                # plt.title('HTM', fontsize =20)
+                # plt.savefig(x + '.png')
+                plt.savefig('New_' + CSV_PID + '.jpg')
+                img_name = now_dir + '\\New_' + CSV_PID + '.jpg'
+                print(img_name)
+                img = cv2.imread(img_name,cv2.IMREAD_COLOR)
+                print(img.shape)
+        # ################read TEXT######################################################
+
+                CSV_File_PATH = os.path.join(TXT_PATH, y)
+                # txt_data = "./txt_data.txt"
+                f = open(CSV_File_PATH, 'r')
+                lines = f.readlines()
+                num = lines[0].split('  ')[1]
+
+                for a in range(0, int(num)):
+                    idx = 5 + a * 2
+                    x_pos = int(lines[idx].split('  ')[1])
+                    y_pos = int(lines[idx + 1].split('  ')[1])
+                    img = cv2.rectangle(img, (x_pos - 100, y_pos - 100), (x_pos + 100, y_pos + 100), (255, 0, 0), 3)
+                    # img = cv2.rectangle(img, (10, 10), (100, 100), (255, 0, 0), 3)
+                ###################################################################################
+                Detect_image ='Detect_' + CSV_PID + '.jpg'
+                cv2.imwrite(Detect_image, img)
+                # cv2.imshow('New Drawing' + x + '.jpg', img)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+                # cv2.imshow("img", img)
+                # cv2.imwrite('New_CV', img)
+                # img.savefig('New' + x + '.jpg')
+                # plt.show()
+                i = i + 1
+                print(i)
+                stop = timeit.default_timer()
+                print(stop - start)
+            print(CSV_PID + "TXT 파일 없음")
+    except:
+        print("에러발생")
+        pass
+
+print("완료")

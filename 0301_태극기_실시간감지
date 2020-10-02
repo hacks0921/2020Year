@@ -1,0 +1,111 @@
+import time
+import sys
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QThread
+from PyQt5.QtCore import pyqtSignal
+
+
+class Example(QWidget):
+    def __init__(self):
+        super(Example, self).__init__()
+        self.initUI()
+
+    def initUI(self):
+
+        vbox = QVBoxLayout(self)  #vbox 레이아웃 설정
+        self.pixmap = QPixmap("태극기.jpg") # QPixmap 기본 이미지 설정
+
+        self.lbl1 = QLabel(self)  # lbl 설정
+        self.lbl1.setPixmap(self.pixmap) # blb에 pixmap 넣기
+        vbox.addWidget(self.lbl1)  # vbox 위젯에 lbb 넣기
+
+        self.lbl2 = QLabel("↓↓↓감시할 폴더를 선택하세요↓↓↓",self)  # 검색 폴더 설정
+        vbox.addWidget(self.lbl2)  # vbox 위젯에 lbb 넣기
+
+        self.le = QLineEdit("D:\\임시폴더",self) #le 설정
+        vbox.addWidget(self.le) #vbox 위젯에 lb 넣기
+
+        self.btn1 = QPushButton('시작', self)  # 시작 버튼 생성
+        vbox.addWidget(self.btn1)  # vbox 위젯에 lb 넣기
+        self.btn1.clicked.connect(self.start)
+
+        self.btn2 = QPushButton('중단', self)  # 중단 버튼 생성
+        vbox.addWidget(self.btn2)  # vbox 위젯에 lb 넣기
+        self.btn2.clicked.connect(self.stop)
+
+        self.lbl3 = QLabel("상태 표시", self)  # lbl 설정
+        vbox.addWidget(self.lbl3)  # vbox 위젯에 lbb 넣기
+        self.lbl3.setFont(QFont("궁서", 20))
+
+        # self.setGeometry(1400, 250, 500, 200)
+        self.setLayout(vbox)
+        self.move(300,200)
+        self.setWindowTitle('실시간감지')
+        self.show()
+
+    def updateStatus(self, status):
+        self.label_status.setText('{}'.format(status))
+
+    def good(self):
+        print("kkkkk")
+
+    def start(self):
+        path = self.le.text()
+        print(path)
+        T = Target()
+        T.run(path)
+        self.lbl3.setText("실시감 감시중...")
+        self.lbl3.setStyleSheet('color:white ; background:rgb(0,0,250)')
+        print("실시간 감시중...")
+
+    def stop(self):
+        self.lbl3.setText("감시 중단")
+        self.lbl3.setStyleSheet('color:white ; background:rgb(250,0,0)')
+        print("감시 중단")
+        pass
+
+
+class Target(QThread):
+    tic = pyqtSignal(name="Tic")
+    value_changed = pyqtSignal(str, name="ValueChanged")
+    # watchDir = './폴더'
+    def __init__(self):
+        QThread.__init__(self)
+        self.observer = Observer()   #observer객체를 만듦
+
+
+    def run(self, path):
+        self.path = path
+        event_handler = Handler()
+        self.observer.schedule(event_handler, path , recursive=True)
+        self.observer.start()
+
+        try:
+
+            time.sleep(1) # 딜레이 시간 1초
+            # self.sig_numbers.emit(cnt)
+
+        except:
+            self.observer.stop()
+            print("Error")
+            self.observer.join()
+
+class Handler(FileSystemEventHandler, QThread):
+
+    def on_created(self, event): #파일, 디렉터리가 생성되면 실행
+        print(event)
+
+    def connectSignals(self):
+        self.gui.button_start.clicked.connect(self.worker.startWork)
+        self.worker.sig_numbers.connect(self.gui.updateStatus)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = Example()
+    sys.exit(app.exec_())

@@ -1,0 +1,134 @@
+from PyQt5.QtWidgets import QWidget, QPushButton, QLabel, QVBoxLayout, QApplication
+from PyQt5.QtCore import QObject
+import sys
+import os
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
+import time
+from PyQt5.QtCore import QThread
+
+
+# UI 생성
+class Window(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.button_start = QPushButton('Start', self)
+        self.button_cancel = QPushButton('Cancel', self)
+        self.label_status = QLabel('status!!', self)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.button_start)
+        layout.addWidget(self.button_cancel)
+        layout.addWidget(self.label_status)
+        self.setFixedSize(400, 200)
+
+    @pyqtSlot('QString')
+    def sss(self,event):
+        print("TEST")
+        print(event)
+        print("진짜 성공")
+
+# 메인 Loop
+# class Worker(QObject):
+#     ## 시그널 객체를 하나 생성합니다.
+#     sig_numbers = pyqtSignal(int)
+#
+#     def __init__(self, parent=None):
+#         super(self.__class__, self).__init__(parent)
+#     # @pyqtSlot()           ## 버튼이 클릭시 시그널을 받아들이는 슬롯을 하나 마련합니다.
+#     def startWork(self):
+        # _cnt = 0
+        # while _cnt < 10:
+        #     _cnt += 1
+        #     self.sig_numbers.emit(_cnt) ## pyqtSignal 에 숫자데이터를 넣어 보낸다
+        #     print(_cnt)                 ## consol에서 어떻게 진행 되는지 보기 위해서 넣어준다
+        #     time.sleep(1)
+class Worker(QObject):
+    watchDir = './감시폴더'
+
+    # watchDir에 감시하려는 디렉토리를 명시한다.
+    # def __init__(self):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.observer = Observer()  # observer객체를 만듦
+
+    def startWork(self):
+        event_handler = Handler()
+        self.observer.schedule(event_handler, self.watchDir,recursive=True)
+        self.observer.start()
+        print("감시시작...")
+        try:
+            while True:
+                time.sleep(1)
+        except:
+            self.observer.stop()
+            print("Error")
+            self.observer.join()
+
+class Handler(FileSystemEventHandler,QObject):
+    sig_numbers = pyqtSignal("PyQt_PyObject")
+
+    def on_created(self, event):  # 파일, 디렉터리가 생성되면 실행
+        print(event)
+        # self.c = Communicate()
+        self.sig_numbers.emit()
+        # self.sig_numbers.emit(self.aaa(event))
+        # a = self.sig_numbers.emit(self.event)
+        # print(a)
+        print("1차......")
+    def aaa(self,evnet):
+        print("2차.....class 내부 성공")
+        print(evnet)
+
+class seo(QObject):
+    def kkk(self, event):
+        print("3차...kkk성공")
+        print('{0}'.format(event))
+
+
+class Example(QObject):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.gui = Window()
+        ##################################################################
+        self.worker = Worker()
+        self.hd = Handler()
+        self.s = seo()
+        self.worker_thread = QThread()
+        self.worker.moveToThread(self.worker_thread)
+        self.worker_thread.start()
+        self._connectSignals()
+        ##################################################################
+        self.gui.show()
+
+
+    def _connectSignals(self):
+        self.gui.button_start.clicked.connect(self.worker.startWork)
+        # self.hd.sig_numbers.connect(self.s.kkk)
+        # self.hd.sig_numbers.connect(lambda:self.s.kkk(self))
+        # self.hd.sig_numbers.connect(self.s.kkk)  # 호출할수가 없음
+        # self.hd.sig_numbers.connect(self.s.kkk(self)) # 함수 호출까지는 되는데 에러 발생
+        # # self.hd.sig_numbers.connect(self.s.kkk(event="가나다라마")) # 함수 호출되면서 "가나다라"
+        # self.hd.sig_numbers.connect(lambda : self.s.kkk(self))
+        self.hd.sig_numbers.connect(self.s.kkk(self.event))
+
+        # self.hd.sig_numbers.connect(self.gui.sss(self))
+        print("............")
+        # self.hd.sig_numbers.connect(self.gui.sss)
+        # self.gui.button_cancel.clicked.connect(self.worker.stopWork)
+        self.gui.button_cancel.clicked.connect(self.forceWorkerReset)
+
+    def jjj(self):
+        print("jjj")
+
+    def forceWorkerReset(self):
+        if self.worker_thread.isRunning():
+            self.worker_thread.terminate()
+            self.worker_thread.wait()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    example = Example(app)
+    sys.exit(app.exec_())
+

@@ -1,0 +1,284 @@
+import sys
+from PyQt5 import QtWidgets
+from PyQt5 import uic
+import openpyxl
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image
+from openpyxl import load_workbook
+import shutil
+from PIL import Image
+import timeit
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+
+class Form(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        QtWidgets.QDialog.__init__(self, parent)
+        self.ui = uic.loadUi("2020.01_QT_UI.ui")
+        self.ui.pushButton_1.clicked.connect(self.doAction_1)
+        self.ui.pushButton_2.clicked.connect(self.doAction_2)
+        self.ui.pushButton_3.clicked.connect(self.doAction_3)
+        self.ui.pushButton_4.clicked.connect(self.doAction_4)
+        self.ui.pushButton_5.clicked.connect(self.doAction_5)
+        self.ui.pushButton_6.clicked.connect(self.doAction_6)
+        self.ui.show()
+
+    def doAction_1(self):
+        try:
+            print("doAction_1")
+            xlsx_dir = self.ui.lineEdit_1.text()
+            print(xlsx_dir)
+            file_name = load_workbook("./" + xlsx_dir + ".xlsx")
+            print(file_name)
+            worksheet = file_name._sheets[0]
+            print(worksheet)
+            count = 0
+            fail = 0
+            for row in worksheet.iter_rows():
+                count += 1
+                img_path = row[0].value  # 파일 경로 설정
+                if os.path.isfile(img_path):
+                    dir_path = './' + str(row[1].value) + '_' + str(row[2].value)  # 저장 경로 생성
+                    if not os.path.exists(dir_path):  # 저장 경로가 없으면 신규 생성
+                        os.mkdir(dir_path)
+                    name = os.path.split(row[0].value)  # 파일 경로 분리
+                    name = os.path.splitext(name[1])  # 파일 확장자 분리
+                    max = worksheet.max_column  # 2
+                    if (max < 4):
+                        save_path = dir_path + '/' + str(name[0]) + str(name[1])  # 저장 경로 설정
+                    else:
+                        save_path = dir_path + '/' + str(name[0]) + "_" + row[3].value + "-" + row[4].value + str(name[1])  # 저장 경로 설정
+                    shutil.copy2(img_path, save_path)  # 파일 경로에 있는 이미지를 해당 폴더로 이동
+                else:
+                    print("FAIL : ", img_path)
+                    fail += 1
+                self.ui.progressBar_1.setValue(100 * ((count + 1) / worksheet.max_row))
+
+            print("total iamges : {:5d}, fail images : {:5d}".format(count, fail))
+            print("완료")
+            self.ui.pushButton_1.setText('완료')
+        except:
+            pass
+
+    def doAction_2(self):
+        try:
+            print("doAction_2")
+            img_dir = self.ui.lineEdit_2.text()
+            img_rh = int(self.ui.lineEdit_2_rh.text())
+            img_w = int(self.ui.lineEdit_2_w.text())
+            img_h = int(self.ui.lineEdit_2_h.text())
+
+            # 1. 이미지 파일 폴더 리스트 생성-----------------------------------------------------------------
+            image_path = []
+            image_name = []
+            for root, dirs, files in os.walk(img_dir):
+                for file in files:
+                    path = os.path.join(root, file) # 파일 경로 이름 생성
+                    image_name.append(file) # img_name 리스트에 누적
+                    image_path.append(path) # img_path 리스트에 누적
+
+
+            # 2. 이미지 파일 리스트, 경로 엑셀 저장-----------------------------------------------------------
+            wb = Workbook()  # 워크북 열기
+            ws = wb['Sheet']  # Sheet 활성화
+
+            for i in range(len(image_path)):
+                ws.cell(row=i + 1, column=1).value = i
+                ws.cell(row=i + 1, column=2).value = image_name[i]
+                ws.cell(row=i + 1, column=3).value = image_path[i]
+                # ws.cell(row=i + 1, column=4).value = os.path.join(img_dir, filenames[i])
+                ws.row_dimensions[i + 1].height = img_rh  # 높이 변경
+                img_path = ws.cell(row=i + 1, column=3).value
+                print(img_path)
+
+                # 3. 경로에 따른 이미지 파일 엑셀 붙이기  : 반복구문-------------------------------------------
+                ext = os.path.splitext(img_path)[-1]
+                ext = ext.lower()
+                print(ext)
+                if ext == '.jpg':
+                    img = openpyxl.drawing.image.Image(img_path)  # 이미지 불러오기
+                    img.width = img_w
+                    img.height = img_h
+                    img.anchor = ws.cell(row=i + 1, column=4).coordinate  # 이미지 넣기
+                    ws.add_image(img)
+
+                #3-1 Progress bar 증가 ------------------------------------------------------------------
+                    self.ui.progressBar_2.setValue(100 * ((i+1) / len(image_path)))
+
+                # 4. 저장-----------------------------------------------------------------------------------------
+            # ws.column_dimensions['E'].width = 20  # 폭 변경
+            wb.save("img_name_path_picture.xlsx")
+            print("완료")
+            self.ui.pushButton_2.setText('완료')
+        except:
+            pass
+
+    def doAction_3(self):
+        try:
+            print("doAction_2")
+            Dir_Root = self.ui.lineEdit_3.text()
+            w = self.ui.lineEdit_3_w.text()
+            h = self.ui.lineEdit_3_h.text()
+            Resize_Root = os.path.dirname(Dir_Root)+"\\Resize"
+
+            # Dir_Root = 'D:/Python/Study/1014/A_1000'
+            # Resize_Root = 'D:/Python/Study/1014/resize'
+            file_name_list = os.listdir(Dir_Root)
+            count = 0
+            if not os.path.isdir(Resize_Root):
+                os.mkdir(Resize_Root)
+
+            for r, d, f in os.walk(Dir_Root):
+                count=0
+                # count += 1
+                # print(count)
+                # r1 = r.replace('D:/Python/Study/1014/A_1000', 'D:/Python/Study/1014/resize')
+                r1 = r.replace(Dir_Root, Resize_Root)
+                if not os.path.isdir(r1):
+                    os.mkdir(r1)
+
+                for index in f:
+                    if 'jpg' or 'JPG' in index:
+                        img_file = os.path.join(r, index)
+                        img = Image.open(img_file)
+                        img = img.resize((int(w), int(h)), Image.BICUBIC)  # BICBIC ???
+                        print(os.path.join(r1, "Resize_" + index))
+                        img.save(os.path.join(r1, "Resize_" + index))  # 이미지 경로에 reszie 이름 붙이기
+                        count += 1
+                        print(count)
+                        print(len(f))
+                        self.ui.progressBar_3.setValue(100 * ((count + 1) / len(f)))
+
+            # print("total iamges : {:5d}, fail images : {:5d}".format(count, fail))
+            print("완료")
+            self.ui.pushButton_3.setText('완료')
+        except:
+            pass
+
+    def doAction_4(self):
+        try:
+            print("doAction_4")
+            x = self.ui.lineEdit_4_x.text()
+            y = self.ui.lineEdit_4_y.text()
+            w = self.ui.lineEdit_4_w.text()
+            h = self.ui.lineEdit_4_h.text()
+            Dir_Root = self.ui.lineEdit_4.text()
+            Resize_Root = os.path.dirname(Dir_Root)+"\\Crop"
+
+            # Dir_Root = 'D:/Python/Study/1014/A_1000'
+            # Resize_Root = 'D:/Python/Study/1014/resize'
+            file_name_list = os.listdir(Dir_Root)
+            count = 0
+
+            box = (int(x), int(y), int(w), int(h))
+            print(box)
+
+            # box = (50, 50, 100, 100)
+            # print(box)
+            #
+            if not os.path.isdir(Resize_Root):
+                os.mkdir(Resize_Root)
+
+            for r, d, f in os.walk(Dir_Root):
+                count=0
+                # count += 1
+                # print(count)
+                # r1 = r.replace('D:/Python/Study/1014/A_1000', 'D:/Python/Study/1014/resize')
+                r1 = r.replace(Dir_Root, Resize_Root)
+                if not os.path.isdir(r1):
+                    os.mkdir(r1)
+
+                for index in f:
+                    if 'jpg' or 'JGP' in index:
+                        img_file = os.path.join(r, index)
+                        img = Image.open(img_file).crop(box)
+                        # img = img.resize((512, 512), Image.BICUBIC)  # BICBIC ???
+                        print(os.path.join(r1, "Crop" + index))
+                        img.save(os.path.join(r1, "Crop" + index))  # 이미지 경로에 reszie 이름 붙이기
+                        count += 1
+                        print(count)
+                        print(len(f))
+
+                        self.ui.progressBar_4.setValue(100 * ((count + 1) / len(f)))
+
+            # print("total iamges : {:5d}, fail images : {:5d}".format(count, fail))
+            print("완료")
+            self.ui.pushButton_4.setText('완료')
+        except:
+            pass
+
+    def doAction_5(self):
+        try:
+            print("doAction_5")
+            xlsx_name = self.ui.lineEdit_5.text()
+            print(xlsx_name)
+            file_path = ("./" + xlsx_name + ".xlsx")
+            print(file_path)
+            wb = openpyxl.load_workbook(file_path)
+            print(wb)
+            ws = wb.sheets[0]
+            # print(ws)
+            img_paths = []
+            i = 1
+            count = 0
+            print(i)
+            for row in ws.iter_rows(min_row=2):  # 2번째 행 부터
+                count +=1
+                img_path = row[0].value
+                img_paths.append(img_path)
+                print(img_path)
+                ext = os.path.splitext(img_path)[-1]
+                ext = ext.lower()
+                print(ext)
+                i = i + 1
+                if ext == '.jpg':
+                    img = openpyxl.drawing.image.Image(img_path)  # 이미지 불러오기
+                    img.width = int(self.ui.lineEdit_5_w.text())
+                    img.height = int(self.ui.lineEdit_5_h.text())
+                    img.anchor = ws.cell(row=i, column=2).coordinate  # 이미지 넣기
+                    ws.add_image(img)
+                    print(i)
+                self.ui.progressBar_5.setValue(100 * ((count + 1) / ws.max_row))
+            wb.save(xlsx_name +"_new.xlsx")
+            self.ui.pushButton_5.setText('완료')
+        except:
+            pass
+
+    def doAction_6(self):
+        try:
+            SEN_PATH = self.ui.lineEdit_6.text()
+            CSV_File = os.listdir(SEN_PATH)
+            CSV_File_PATH = []
+            start = timeit.default_timer()
+            a = list(range(0, 15630))
+            i = 0
+            for x in CSV_File:
+                print(x)
+                CSV_File_PATH = os.path.join(SEN_PATH, x)
+                print(CSV_File_PATH)
+                rawdata = pd.read_csv(CSV_File_PATH)
+                print(rawdata)
+                df = pd.DataFrame(rawdata)
+                df.columns = list(range(1, 15361))
+                print(df)
+                plt.figure(figsize=(18, 8))
+                ax = sns.heatmap(rawdata, vmax=500)
+                plt.title('HTM', fontsize=20)
+                plt.savefig('New' + x + '.jpg')
+                i = i + 1
+                print(i)
+                stop = timeit.default_timer()
+                print(stop - start)
+                # self.ui.progressBar_6.setValue(100 * (i / ws.max_row))
+            print("완료")
+
+        except:
+            print(x)
+            pass
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    w = Form()
+    sys.exit(app.exec())
