@@ -1,0 +1,25 @@
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import cv2
+import numpy as np
+
+Img = cv2.imread("apple.jpg")
+Img = cv2.cvtColor(Img, cv2.COLOR_BGR2GRAY)
+
+column = Img.shape[1]
+row = Img.shape[0]
+pitch = 5
+d = np.arange(row)
+for x in range(column):
+    a = Img[:,x]
+    print(a)
+    b = Img[:,x - pitch]
+    c = a - b
+    d = np.vstack((d, c))
+    print(d)
+    print(d.shape)
+d = d.T
+fig = plt.figure()
+ax1 = sns.heatmap(d)
+plt.savefig("test.jpg")
